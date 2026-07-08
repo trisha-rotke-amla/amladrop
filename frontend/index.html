@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AmlaDrop — disposable inbox</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f6f5;
+    --surface: #ffffff;
+    --border: #e2e6e3;
+    --ink: #212529;
+    --ink-soft: #6b6b6b;
+    --primary: #2f6b39;
+    --primary-strong: #24572c;
+    --accent: #6bc04b;
+    --danger: #dc3545;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Poppins', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-variant-numeric: tabular-nums; }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+  .topbar-inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .brand-name { font-weight: 700; font-size: 19px; letter-spacing: -0.2px; color: var(--ink); }
+  .brand-name span { color: var(--primary); }
+  .brand-tag {
+    font-size: 12px;
+    color: var(--ink-soft);
+    animation: tag-fade-in 0.5s ease-out 0.15s both;
+  }
+  @keyframes tag-fade-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .topbar-nav { display: flex; align-items: center; gap: 24px; }
+  .nav-link { font-size: 13px; font-weight: 500; color: var(--ink-soft); text-decoration: none; }
+  .nav-link:hover { color: var(--primary); }
+  .nav-link.active { color: var(--primary); font-weight: 600; }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  .hero { text-align: left; margin-bottom: 28px; }
+  .hero h1 { font-size: 28px; line-height: 1.3; margin: 0 0 8px; font-weight: 700; }
+  .hero p { color: var(--ink-soft); margin: 0; font-size: 14px; }
+
+  .address-form {
+    display: flex;
+    align-items: stretch;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 8px;
+    max-width: 620px;
+  }
+  .address-form input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 15px 4px 15px 18px;
+    font-family: inherit;
+    font-size: 15px;
+    color: var(--ink);
+    outline: none;
+    min-width: 0;
+  }
+  .address-form .domain-suffix {
+    font-size: 14px;
+    color: var(--ink-soft);
+    padding: 15px 12px 15px 0;
+    white-space: nowrap;
+    align-self: center;
+  }
+  .address-form button {
+    border: none;
+    background: var(--primary);
+    color: #fff;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 0 22px;
+    cursor: pointer;
+  }
+  .address-form button:hover { background: var(--primary-strong); }
+  .hint { font-size: 12px; color: var(--ink-soft); margin: 0 0 36px; max-width: 620px; }
+  .hint b { color: var(--ink); }
+
+  .inbox-shell { display: none; }
+  .inbox-shell.active { display: block; }
+
+  .inbox-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; flex-wrap: wrap; gap: 8px; }
+  .inbox-address { font-size: 17px; font-weight: 600; word-break: break-all; }
+  .inbox-actions { display: flex; gap: 8px; }
+  .icon-btn {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink-soft);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 7px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .icon-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .expiry-note { font-size: 12px; color: var(--ink-soft); margin: 0 0 20px; }
+
+  /* Compose */
+  .compose-shell { display: none; margin-bottom: 24px; }
+  .compose-shell.active { display: block; }
+  .compose-field {
+    display: flex;
+    align-items: stretch;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    overflow: hidden;
+  }
+  .compose-field:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+  .compose-field label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    padding: 12px 0 12px 16px;
+    width: 64px;
+    flex-shrink: 0;
+    align-self: center;
+  }
+  .compose-field input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 12px 16px 12px 4px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--ink);
+    outline: none;
+    min-width: 0;
+  }
+  .compose-field .domain-suffix {
+    font-size: 13px;
+    color: var(--ink-soft);
+    padding-right: 16px;
+    white-space: nowrap;
+    align-self: center;
+  }
+  .compose-body-field {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0 0 var(--radius) var(--radius);
+    padding: 4px;
+  }
+  .compose-body-field textarea {
+    width: 100%;
+    min-height: 120px;
+    border: none;
+    background: transparent;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--ink);
+    outline: none;
+    resize: vertical;
+  }
+  .compose-actions { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+  .compose-send-btn {
+    border: none;
+    background: var(--primary);
+    color: #fff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .compose-send-btn:hover { background: var(--primary-strong); }
+  .compose-send-btn:disabled { background: var(--border); color: var(--ink-soft); cursor: default; }
+  .compose-status { font-size: 12px; color: var(--ink-soft); }
+  .compose-status.error { color: var(--danger); }
+  .compose-status.success { color: var(--primary); }
+
+  /* Two-pane mail app */
+  .mail-grid {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    overflow: hidden;
+    height: 620px;
+  }
+  .list-pane {
+    width: 340px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .detail-pane {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .msg-list { list-style: none; margin: 0; padding: 0; }
+  .msg-row {
+    display: grid;
+    grid-template-columns: 34px 1fr auto;
+    gap: 12px;
+    align-items: start;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .msg-row:hover { background: rgba(47,107,57,0.05); }
+  .msg-row.active { background: rgba(47,107,57,0.09); box-shadow: inset 3px 0 0 var(--primary); }
+  .avatar {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .msg-meta { min-width: 0; }
+  .msg-from { font-size: 13px; color: var(--ink); font-weight: 600; margin: 0 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .msg-subject { font-size: 13px; margin: 0 0 3px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .msg-snippet { font-size: 12px; color: var(--ink-soft); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .msg-time { font-size: 11px; color: var(--ink-soft); white-space: nowrap; text-align: right; padding-top: 2px; }
+
+  .list-empty { padding: 40px 20px; text-align: center; color: var(--ink-soft); font-size: 13px; }
+
+  .detail-empty { flex: 1; display: flex; align-items: center; justify-content: center; }
+  .ph-inner { text-align: center; color: var(--ink-soft); padding: 24px; }
+  .ph-inner svg { margin-bottom: 14px; }
+  .ph-inner p { margin: 0; font-size: 13px; }
+  .ph-inner .waiting { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; color: var(--primary); }
+  .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 0.25; } 50% { opacity: 1; } }
+
+  .detail-view { display: none; flex-direction: column; flex: 1; min-height: 0; }
+  .detail-toolbar {
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .detail-back {
+    display: none;
+    border: none;
+    background: none;
+    color: var(--ink-soft);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0 0 10px;
+  }
+  .detail-titles h2 { font-size: 16px; margin: 0 0 6px; font-weight: 600; }
+  .detail-titles .from { font-size: 13px; color: var(--primary); font-weight: 500; margin: 0 0 2px; }
+  .detail-titles .time { font-size: 11px; color: var(--ink-soft); }
+  .detail-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .action-btn {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink-soft);
+    width: 32px; height: 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .action-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .action-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+  .detail-reply-note { display: none; font-size: 12px; color: var(--danger); padding: 10px 22px 0; }
+  .detail-reply-note.visible { display: block; }
+  .detail-body { padding: 20px 22px; overflow-y: auto; flex: 1; font-size: 14px; line-height: 1.6; }
+  .detail-body iframe { width: 100%; min-height: 200px; border: none; }
+  .plain-body { white-space: pre-wrap; }
+  .attachments { padding: 12px 22px 20px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .attachments p { font-size: 12px; color: var(--ink-soft); margin: 0 0 8px; }
+  .attach-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 6px 10px;
+    margin: 0 6px 6px 0;
+    text-decoration: none;
+  }
+
+  @media (max-width: 760px) {
+    .mail-grid { height: auto; min-height: 480px; }
+    .list-pane { width: 100%; border-right: none; }
+    .detail-pane { display: none; }
+    .mail-grid.showing-detail .list-pane { display: none; }
+    .mail-grid.showing-detail .detail-pane { display: flex; width: 100%; }
+    .detail-back { display: inline-block; }
+  }
+  @media (max-width: 480px) {
+    .hero h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="topbar-left">
+      <div class="brand-name">Amla<span>Drop</span></div>
+      <div class="brand-tag">Disposable Email Made Simple</div>
+    </div>
+    <nav class="topbar-nav">
+      <a class="nav-link" href="/about.html">About</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="hero">
+    <h1>Type a name.<br>Get an inbox.</h1>
+    <p>No account, no password. Whatever you type becomes an address instantly.</p>
+  </div>
+
+  <form class="address-form" id="address-form" autocomplete="off">
+    <input type="text" id="mailbox-input" placeholder="anything" spellcheck="false">
+    <span class="domain-suffix" id="domain-suffix">@example.com</span>
+    <button type="submit">Open inbox</button>
+  </form>
+  <p class="hint">Mail sent to that address appears below automatically. Messages expire after <b id="retention-hint">3 hours</b>.</p>
+
+  <div class="inbox-shell" id="inbox-shell">
+    <div class="inbox-header">
+      <div class="inbox-address" id="inbox-address"></div>
+      <div class="inbox-actions">
+        <button class="icon-btn" id="compose-btn">Compose</button>
+        <button class="icon-btn" id="copy-btn">Copy address</button>
+        <button class="icon-btn" id="clear-btn">Clear inbox</button>
+      </div>
+    </div>
+    <p class="expiry-note">Checking for new mail every few seconds.</p>
+
+    <div class="compose-shell" id="compose-shell">
+      <form id="compose-form">
+        <div class="compose-field">
+          <label for="compose-to">To</label>
+          <input type="text" id="compose-to" placeholder="anything" spellcheck="false" autocomplete="off">
+          <span class="domain-suffix" id="compose-domain-suffix">@example.com</span>
+        </div>
+        <div class="compose-field">
+          <label for="compose-subject">Subject</label>
+          <input type="text" id="compose-subject" placeholder="(no subject)" autocomplete="off">
+        </div>
+        <div class="compose-body-field">
+          <textarea id="compose-body" placeholder="Write your message&hellip;"></textarea>
+        </div>
+        <div class="compose-actions">
+          <button type="submit" class="compose-send-btn" id="compose-send-btn">Send</button>
+          <span class="compose-status" id="compose-status"></span>
+        </div>
+      </form>
+    </div>
+
+    <div class="mail-grid" id="mail-grid">
+      <div class="list-pane">
+        <ul class="msg-list" id="msg-list"></ul>
+        <div class="list-empty" id="list-empty" style="display:none;">No messages yet.</div>
+      </div>
+      <div class="detail-pane">
+        <div class="detail-empty" id="detail-empty">
+          <div class="ph-inner" id="detail-empty-inner"></div>
+        </div>
+        <div class="detail-view" id="detail-view">
+          <div class="detail-toolbar">
+            <div>
+              <button class="detail-back" id="detail-back">&lsaquo; Back to list</button>
+              <div class="detail-titles">
+                <h2 id="detail-subject"></h2>
+                <p class="from" id="detail-from"></p>
+                <p class="time" id="detail-time"></p>
+              </div>
+            </div>
+            <div class="detail-actions">
+              <button class="action-btn" id="reply-btn" title="Reply">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"></polyline><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path></svg>
+              </button>
+              <button class="action-btn" id="forward-btn" title="Forward">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"></polyline><path d="M4 18v-2a4 4 0 0 1 4-4h12"></path></svg>
+              </button>
+              <button class="action-btn" id="print-btn" title="Print">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+              </button>
+              <button class="action-btn danger" id="detail-delete-btn" title="Delete">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              </button>
+            </div>
+          </div>
+          <p class="detail-reply-note" id="detail-reply-note"></p>
+          <div class="detail-body" id="detail-body"></div>
+          <div class="attachments" id="detail-attachments" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let currentMailbox = null;
+let currentMessage = null;
+let pollTimer = null;
+let domainInfo = { domain: "example.com", retention_hours: 24 };
+
+const EMPTY_INBOX_HTML = `
+  <svg width="40" height="30" viewBox="0 0 40 30" fill="none">
+    <rect x="1" y="1" width="38" height="28" rx="2" stroke="#B4B2A9" stroke-width="1.5"/>
+    <path d="M2 2 L20 18 L38 2" stroke="#B4B2A9" stroke-width="1.5" fill="none"/>
+  </svg>
+  <p>Nothing here yet.</p>
+  <p>Send an email to this address and it'll land here.</p>
+  <div class="waiting"><span class="pulse"></span> listening</div>
+`;
+const SELECT_MESSAGE_HTML = `<p>Select a message to read it.</p>`;
+
+async function loadDomainInfo() {
+  try {
+    const res = await fetch('/api/domain');
+    domainInfo = await res.json();
+    document.getElementById('domain-suffix').textContent = '@' + domainInfo.domain;
+    document.getElementById('compose-domain-suffix').textContent = '@' + domainInfo.domain;
+    document.getElementById('retention-hint').textContent = formatHours(domainInfo.retention_hours);
+  } catch (e) {
+    console.error('Could not load domain info', e);
+  }
+}
+
+function formatHours(h) {
+  if (h < 1) return Math.round(h * 60) + ' minutes';
+  if (h === 1) return '1 hour';
+  if (h % 24 === 0) return (h / 24) + (h === 24 ? ' day' : ' days');
+  return h + ' hours';
+}
+
+function sanitizeMailbox(v) {
+  v = v.trim().toLowerCase();
+  if (v.includes('@')) v = v.split('@', 1)[0];
+  return v.replace(/[^a-z0-9._%+-]/g, '');
+}
+
+function extractAddress(raw) {
+  const m = String(raw).match(/<([^>]+)>/);
+  return (m ? m[1] : String(raw)).trim().toLowerCase();
+}
+
+function openMailbox(mailbox) {
+  mailbox = sanitizeMailbox(mailbox);
+  if (!mailbox) return;
+  currentMailbox = mailbox;
+  currentMessage = null;
+  window.location.hash = mailbox;
+  document.getElementById('mailbox-input').value = mailbox;
+  document.getElementById('inbox-address').textContent = mailbox + '@' + domainInfo.domain;
+  document.getElementById('inbox-shell').classList.add('active');
+  showDetailEmpty();
+  refreshInbox();
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(refreshInbox, 5000);
+}
+
+async function refreshInbox() {
+  if (!currentMailbox) return;
+  try {
+    const res = await fetch('/api/inbox/' + encodeURIComponent(currentMailbox));
+    const data = await res.json();
+    renderMessages(data.messages);
+  } catch (e) {
+    console.error('Could not refresh inbox', e);
+  }
+}
+
+function renderMessages(messages) {
+  const list = document.getElementById('msg-list');
+  const empty = document.getElementById('list-empty');
+  if (!messages.length) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    list.innerHTML = messages.map(m => `
+      <li class="msg-row${currentMessage && currentMessage.id == m.id ? ' active' : ''}" data-id="${m.id}">
+        <span class="avatar">${escapeHtml((m.sender || '?').trim().charAt(0).toUpperCase())}</span>
+        <span class="msg-meta">
+          <p class="msg-from">${escapeHtml(m.sender)}</p>
+          <p class="msg-subject">${escapeHtml(m.subject || '(no subject)')}</p>
+          <p class="msg-snippet">${escapeHtml(m.snippet || '')}</p>
+        </span>
+        <span class="msg-time">${formatTime(m.received_at)}</span>
+      </li>
+    `).join('');
+    list.querySelectorAll('.msg-row').forEach(row => {
+      row.addEventListener('click', () => openMessage(row.dataset.id));
+    });
+  }
+  if (!currentMessage) {
+    document.getElementById('detail-empty-inner').innerHTML = messages.length ? SELECT_MESSAGE_HTML : EMPTY_INBOX_HTML;
+  }
+}
+
+function formatTime(ts) {
+  const d = new Date(ts * 1000);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function showDetailEmpty() {
+  currentMessage = null;
+  document.getElementById('detail-view').style.display = 'none';
+  document.getElementById('detail-empty').style.display = 'flex';
+  document.getElementById('mail-grid').classList.remove('showing-detail');
+  document.querySelectorAll('.msg-row.active').forEach(r => r.classList.remove('active'));
+}
+
+async function openMessage(id) {
+  const res = await fetch('/api/message/' + id);
+  const msg = await res.json();
+  currentMessage = msg;
+
+  document.querySelectorAll('.msg-row').forEach(r => r.classList.toggle('active', r.dataset.id === String(id)));
+
+  document.getElementById('detail-empty').style.display = 'none';
+  const view = document.getElementById('detail-view');
+  view.style.display = 'flex';
+  document.getElementById('mail-grid').classList.add('showing-detail');
+
+  document.getElementById('detail-subject').textContent = msg.subject || '(no subject)';
+  document.getElementById('detail-from').textContent = msg.sender;
+  document.getElementById('detail-time').textContent = new Date(msg.received_at * 1000).toLocaleString();
+  document.getElementById('detail-reply-note').textContent = '';
+  document.getElementById('detail-reply-note').className = 'detail-reply-note';
+
+  const body = document.getElementById('detail-body');
+  body.innerHTML = '';
+  if (msg.body_html) {
+    const iframe = document.createElement('iframe');
+    // No allow-scripts: embedded <script> tags in mail never execute.
+    // allow-same-origin only lets us read scrollHeight to auto-size the frame.
+    iframe.sandbox = 'allow-same-origin';
+    iframe.srcdoc = msg.body_html;
+    iframe.addEventListener('load', () => {
+      try {
+        const h = iframe.contentDocument.documentElement.scrollHeight;
+        iframe.style.height = Math.min(Math.max(h + 20, 200), 3000) + 'px';
+      } catch (e) { /* cross-origin resources inside the mail can block this; frame keeps its min-height */ }
+    });
+    body.appendChild(iframe);
+  } else {
+    const div = document.createElement('div');
+    div.className = 'plain-body';
+    div.textContent = msg.body_text || '(empty message)';
+    body.appendChild(div);
+  }
+
+  const attWrap = document.getElementById('detail-attachments');
+  if (msg.attachments && msg.attachments.length) {
+    attWrap.style.display = 'block';
+    attWrap.innerHTML = '<p>' + msg.attachments.length + ' attachment(s)</p>' +
+      msg.attachments.map((a, i) =>
+        `<a class="attach-link" href="/api/attachment/${msg.id}/${i}" target="_blank">${escapeHtml(a.filename)}</a>`
+      ).join('');
+  } else {
+    attWrap.style.display = 'none';
+    attWrap.innerHTML = '';
+  }
+}
+
+function openCompose(prefill) {
+  prefill = prefill || {};
+  document.getElementById('compose-to').value = prefill.to || '';
+  document.getElementById('compose-subject').value = prefill.subject || '';
+  document.getElementById('compose-body').value = prefill.body || '';
+  document.getElementById('compose-status').textContent = '';
+  document.getElementById('compose-status').className = 'compose-status';
+  document.getElementById('compose-shell').classList.add('active');
+  document.getElementById(prefill.to ? 'compose-body' : 'compose-to').focus();
+}
+
+document.getElementById('detail-back').addEventListener('click', () => {
+  document.getElementById('mail-grid').classList.remove('showing-detail');
+});
+
+document.getElementById('reply-btn').addEventListener('click', () => {
+  if (!currentMessage) return;
+  const addr = extractAddress(currentMessage.sender);
+  const domain = addr.split('@')[1] || '';
+  const note = document.getElementById('detail-reply-note');
+  if (domain !== domainInfo.domain) {
+    note.textContent = `Can't reply — this message came from outside @${domainInfo.domain}. You can only send to other @${domainInfo.domain} addresses.`;
+    note.className = 'detail-reply-note visible';
+    return;
+  }
+  note.textContent = '';
+  note.className = 'detail-reply-note';
+  const local = addr.split('@')[0];
+  const subj = currentMessage.subject || '';
+  openCompose({ to: local, subject: /^re:/i.test(subj) ? subj : ('Re: ' + subj) });
+});
+
+document.getElementById('forward-btn').addEventListener('click', () => {
+  if (!currentMessage) return;
+  const subj = currentMessage.subject || '';
+  const original = currentMessage.body_text
+    || (currentMessage.body_html ? '(original message was HTML — open it to view the full formatting)' : '(empty message)');
+  const quoted = [
+    '---------- Forwarded message ----------',
+    'From: ' + currentMessage.sender,
+    'Date: ' + new Date(currentMessage.received_at * 1000).toLocaleString(),
+    'Subject: ' + (subj || '(no subject)'),
+    '',
+    original,
+  ].join('\n');
+  openCompose({ subject: /^fwd:/i.test(subj) ? subj : ('Fwd: ' + subj), body: quoted });
+});
+
+document.getElementById('print-btn').addEventListener('click', () => {
+  if (!currentMessage) return;
+  const subject = escapeHtml(currentMessage.subject || '(no subject)');
+  const from = escapeHtml(currentMessage.sender);
+  const time = escapeHtml(new Date(currentMessage.received_at * 1000).toLocaleString());
+  const bodyHtml = currentMessage.body_html
+    ? currentMessage.body_html
+    : `<pre style="white-space:pre-wrap;font-family:inherit;">${escapeHtml(currentMessage.body_text || '(empty message)')}</pre>`;
+  const w = window.open('', '_blank');
+  if (!w) return;
+  w.document.write(
+    '<!DOCTYPE html><html><head><title>' + subject + '</title>' +
+    '<style>body{font-family:Arial,sans-serif;padding:24px;color:#111;}' +
+    '.meta{color:#555;font-size:13px;margin:2px 0;}h1{font-size:18px;margin:0 0 10px;}' +
+    'hr{border:none;border-top:1px solid #ddd;margin:16px 0;}</style></head><body>' +
+    '<h1>' + subject + '</h1>' +
+    '<p class="meta">From: ' + from + '</p>' +
+    '<p class="meta">' + time + '</p><hr>' + bodyHtml + '</body></html>'
+  );
+  w.document.close();
+  w.focus();
+  w.print();
+});
+
+document.getElementById('detail-delete-btn').addEventListener('click', async () => {
+  if (!currentMessage) return;
+  if (!confirm('Delete this message?')) return;
+  await fetch('/api/message/' + currentMessage.id, { method: 'DELETE' });
+  showDetailEmpty();
+  refreshInbox();
+});
+
+document.getElementById('address-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  openMailbox(document.getElementById('mailbox-input').value);
+});
+
+document.getElementById('copy-btn').addEventListener('click', () => {
+  const addr = document.getElementById('inbox-address').textContent;
+  navigator.clipboard.writeText(addr);
+  const btn = document.getElementById('copy-btn');
+  const original = btn.textContent;
+  btn.textContent = 'Copied';
+  setTimeout(() => { btn.textContent = original; }, 1200);
+});
+
+document.getElementById('clear-btn').addEventListener('click', async () => {
+  if (!currentMailbox) return;
+  if (!confirm('Delete all messages in this inbox?')) return;
+  await fetch('/api/inbox/' + encodeURIComponent(currentMailbox), { method: 'DELETE' });
+  showDetailEmpty();
+  refreshInbox();
+});
+
+document.getElementById('compose-btn').addEventListener('click', () => {
+  const shell = document.getElementById('compose-shell');
+  if (shell.classList.contains('active')) {
+    shell.classList.remove('active');
+  } else {
+    openCompose();
+  }
+});
+
+document.getElementById('compose-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!currentMailbox) return;
+
+  const to = sanitizeMailbox(document.getElementById('compose-to').value);
+  const subject = document.getElementById('compose-subject').value;
+  const body = document.getElementById('compose-body').value;
+  const status = document.getElementById('compose-status');
+  const sendBtn = document.getElementById('compose-send-btn');
+
+  status.textContent = '';
+  status.className = 'compose-status';
+
+  if (!to) {
+    status.textContent = 'Enter a recipient.';
+    status.className = 'compose-status error';
+    return;
+  }
+
+  sendBtn.disabled = true;
+  try {
+    const res = await fetch('/api/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sender: currentMailbox,
+        to: to + '@' + domainInfo.domain,
+        subject,
+        body,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Send failed');
+    }
+    status.textContent = 'Sent to ' + to + '@' + domainInfo.domain;
+    status.className = 'compose-status success';
+    document.getElementById('compose-to').value = '';
+    document.getElementById('compose-subject').value = '';
+    document.getElementById('compose-body').value = '';
+    if (to === currentMailbox) refreshInbox();
+  } catch (err) {
+    status.textContent = err.message;
+    status.className = 'compose-status error';
+  } finally {
+    sendBtn.disabled = false;
+  }
+});
+
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadDomainInfo();
+  document.getElementById('detail-empty-inner').innerHTML = EMPTY_INBOX_HTML;
+  const hashMailbox = window.location.hash.replace('#', '');
+  if (hashMailbox) openMailbox(hashMailbox);
+});
+</script>
+</body>
+</html>

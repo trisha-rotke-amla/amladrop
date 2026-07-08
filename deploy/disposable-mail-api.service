@@ -1,0 +1,16 @@
+[Unit]
+Description=Disposable Mail API
+After=network.target
+
+[Service]
+Type=simple
+User=disposable-mail
+Group=disposable-mail
+WorkingDirectory=/opt/disposable-mail/backend
+EnvironmentFile=/opt/disposable-mail/backend/.env
+ExecStart=/opt/disposable-mail/backend/venv/bin/uvicorn app:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

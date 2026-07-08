@@ -1,0 +1,15 @@
+[Unit]
+Description=Disposable Mail SMTP Receiver
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/disposable-mail/backend
+EnvironmentFile=/opt/disposable-mail/backend/.env
+ExecStart=/opt/disposable-mail/backend/venv/bin/python3 smtp_server.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
